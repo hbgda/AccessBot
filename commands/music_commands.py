@@ -1,25 +1,13 @@
-from typing import Any
-import discord
-from discord import guild
-from discord import voice_client
-from discord.channel import VoiceChannel
+import re
+
 from discord.ext import commands
 from discord.voice_client import VoiceClient
-from pyyoutube.models import video
-from pyyoutube.models.playlist_item import PlaylistItem, PlaylistItemListResponse
-import requests
-import time
-import os
-import re
-import asyncio
-
-from threading import Timer
-from youtube_dl import YoutubeDL
-from classes.MusicClasses import ServerMusicData, Song
 from pyyoutube import Api as YTAPI
+from pyyoutube.models.video import Video
+from pyyoutube.models.playlist_item import PlaylistItem
+from classes.MusicClasses import ServerMusicData, ServerMusicPlayer, Song
 
 yt_token = open(r"yt_api_key.txt").read()
-print(yt_token)
 yt_api = YTAPI(api_key=yt_token)
 
 
@@ -28,18 +16,17 @@ FFMPEG_OPTIONS = {
 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
 servers: dict[str, ServerMusicData] = {}
+players: dict[str, ServerMusicPlayer] = {}
 
 class MusicCommands(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    @commands.command(name="test")
+    @commands.command(name="play")
     async def play_song(self, ctx: commands.Context, *, args: str = None):
         print(args)
 
         servers[ctx.guild.id] = ServerMusicData([])
-
-        ytdl = YoutubeDL(YTDL_OPTIONS)
         
         if re.search("^.*(youtu.be\/|list=)([^#\&\?]*).*", args):
             # Play playlist
@@ -47,7 +34,7 @@ class MusicCommands(commands.Cog):
             print(playlist_id)
 
             await ctx.send("Getting links, depending on the size of the playlist this could take a while...")
-            playlist_items: list[PlaylistItem] = yt_api.get_playlist_items(playlist_id=playlist_id).items
+            playlist_items: list[PlaylistItem] = yt_api.get_playlist_items(playlist_id=playlist_id, count=None).items
             print(len(playlist_items))
 
             for item in playlist_items:
@@ -63,7 +50,7 @@ class MusicCommands(commands.Cog):
             else:
                 video_id = video_id[1]
             print(video_id)
-            video_info: video.Video = yt_api.get_video_by_id(video_id=video_id).items[0]
+            video_info: Video = yt_api.get_video_by_id(video_id=video_id).items[0]
             #print(video_info)
         
             song = Song(video_info.snippet.title.strip(), video_info.snippet.description, video_info.snippet.channelTitle, video_info.snippet.thumbnails.default.url, args, (video_info.contentDetails.duration))
@@ -72,64 +59,63 @@ class MusicCommands(commands.Cog):
         else:
             await ctx.send("Invalid URL.")
             return
-            # TODO: implement search
+            # TODO: Implement search
 
         channel = ctx.author.voice.channel
         
         vc = await channel.connect()
-        await play_queue(ctx, vc, ctx.guild.id, FFMPEG_OPTIONS, YTDL_OPTIONS)
+        smp = ServerMusicPlayer(ctx, vc, servers[ctx.guild.id], YTDL_OPTIONS)
+        players[ctx.guild.id] = smp
+        await smp.play_queue()
 
-def get_playback_url(url, ytdlOps):
-    print(url)
-    try:
-        with YoutubeDL(ytdlOps) as y:
-            info = y.extract_info(url, download=False)
-            return info
-    except Exception as e:
-        print(e)
-        return e
-
-async def play_queue(ctx: commands.Context, vc: VoiceClient, guildID, ffmpegOps, ytdlOps):
-    current = servers[guildID].get_current_song()
-    vc
-    info = get_playback_url(current.url, ytdlOps)
-    if isinstance(info, Exception):
-        await ctx.send("An error occurred downloading:\n {}".format(current.title))
-        servers[guildID].queueIndex += 1
-        if servers[guildID].queueIndex >= len(servers[guildID].queue):
-            await ctx.send("Finished!")
-            await vc.disconnect()
+    @commands.command(name="pause")
+    async def pause(self, ctx: commands.Context):
+        p = players[ctx.guild.id]
+        if type(p) != ServerMusicPlayer:
+            await ctx.send("Nothing playing!")
+        elif p.vc.is_paused():
+            await ctx.send("Already paused!")
         else:
-            await play_queue(ctx, vc, guildID, ffmpegOps, ytdlOps)
-        return
-
-    dl_URL = info["url"]
-    dur = info["duration"]
-    print(dur)
-
-    embed = discord.Embed()
-    embed.add_field(name="Now Playing", value="[{0}]({1})".format(current.title, current.url), inline=False)
-    embed.add_field(name="Duration", value='%d:%02d' % (dur / 60, dur % 60), inline=False)
-    embed.set_thumbnail(url=current.thumbnail)
-    embed.colour = 0xFFff00
-    await ctx.send(embed=embed)
-
-    vc.play(discord.FFmpegPCMAudio(dl_URL, **ffmpegOps))
-    while vc.is_playing():
-        await asyncio.sleep(0.5)
-    
-    servers[guildID].queueIndex += 1
-    if servers[guildID].queueIndex >= len(servers[guildID].queue):
-        await ctx.send("Finished!")
-        await vc.disconnect()
-        return
-
-    await play_queue(ctx, vc, guildID, ffmpegOps, ytdlOps)
+            p.pause()
+            await ctx.send("Paused")
 
 
+    @commands.command(name="resume")
+    async def resume(self, ctx: commands.Context):
+        p = players[ctx.guild.id]
+        if type(p) != ServerMusicPlayer:
+            await ctx.send("Nothing playing!")
+        elif p.vc.is_playing():
+            await ctx.send("Already playing!")
+        else:
+            p.resume()
+            await ctx.send("Resumed")
 
+    @commands.command(name="skip")
+    async def skip(self, ctx: commands.Context, index: int = None):
+        p = players[ctx.guild.id]
+        if type(p) != ServerMusicPlayer:
+            await ctx.send("Nothing playing!")
+        else:
+            if index:
+                p.serverMusicData.queueIndex += index - 1
+            await p.play_next()
 
+    @commands.command(name="prev")
+    async def previous(self, ctx: commands.Context):
+        p = players[ctx.guild.id]
+        if type(p) != ServerMusicPlayer:
+            await ctx.send("Nothing playing!")
+        else:
+            await p.play_prev()
 
+    @commands.command(name="volume")
+    async def volume(self, ctx: commands.Context, vol: float = 1):
+        p = players[ctx.guild.id]
+        if type(p) != ServerMusicPlayer:
+            await ctx.send("Nothing playing!")
+        else:
+            p.set_volume(vol)
 
 
 def setup(client):
