@@ -1,11 +1,17 @@
 import re
+import discord
+import math
 
 from discord.ext import commands
+from discord.message import Message
 from discord.voice_client import VoiceClient
+from discord_components.interaction import Interaction
 from pyyoutube import Api as YTAPI
 from pyyoutube.models.video import Video
 from pyyoutube.models.playlist_item import PlaylistItem
 from classes.MusicClasses import ServerMusicData, ServerMusicPlayer, Song
+from helper_functions import format_str
+from discord_components import Button, Select, SelectOption, ButtonStyle
 
 yt_token = open(r"yt_api_key.txt").read()
 yt_api = YTAPI(api_key=yt_token)
@@ -61,7 +67,7 @@ class MusicCommands(commands.Cog):
             print(len(playlist_items))
 
             for item in playlist_items:
-                song = Song(item.snippet.title.strip(), item.snippet.description, item.snippet.channelTitle, item.snippet.thumbnails.default.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
+                song = Song(item.snippet.title.strip(), item.snippet.description, item.snippet.videoOwnerChannelTitle.strip(" - Topic"), item.snippet.thumbnails.default.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
                 player.serverMusicData.add_song(song)
 
         elif re.search("^(http(s)?:\/\/)?((w){3}.)?youtu(be|.be)?(\.com)?\/.+", args):
@@ -76,7 +82,7 @@ class MusicCommands(commands.Cog):
             video_info: Video = yt_api.get_video_by_id(video_id=video_id).items[0]
             #print(video_info)
         
-            song = Song(video_info.snippet.title.strip(), video_info.snippet.description, video_info.snippet.channelTitle, video_info.snippet.thumbnails.default.url, args, (video_info.contentDetails.duration))
+            song = Song(video_info.snippet.title.strip(), video_info.snippet.description, video_info.snippet.channelTitle.strip(" - Topic"), video_info.snippet.thumbnails.default.url, args, (video_info.contentDetails.duration))
             player.serverMusicData.add_song(song)
 
         else:
@@ -89,6 +95,44 @@ class MusicCommands(commands.Cog):
             return
 
         await player.play_queue()
+    
+    @commands.command(name="queue")
+    async def queue(self, ctx: commands.Context, page = 1):
+        selected_page = page
+        try:
+            player = players[ctx.guild.id]
+        except:
+            await ctx.send("Nothing playing!")
+            return
+
+        embed = player.get_queue_embed(page)
+
+        msg: Message = await ctx.send(embed=embed, components=[
+            [Button(style=ButtonStyle.blue, label="<<"),
+            Button(style=ButtonStyle.blue, label="<"),
+            Button(style=ButtonStyle.blue, label=">"),
+            Button(style=ButtonStyle.blue, label=">>")]
+        ])
+
+        _inter: Message = None
+        while True:
+            interaction: Interaction = await self.client.wait_for("button_click")
+            if interaction.component.label == "<<":
+                selected_page = 1
+                await msg.edit(embed=player.get_queue_embed())
+            elif interaction.component.label == "<":
+                if selected_page > 1:
+                    selected_page -= 1
+                await msg.edit(embed=player.get_queue_embed(selected_page))
+            elif interaction.component.label == ">":
+                if selected_page < math.ceil(len(player.serverMusicData.queue)/5):
+                    selected_page += 1
+                await msg.edit(embed=player.get_queue_embed(selected_page))
+            elif interaction.component.label == ">>":
+                selected_page = math.ceil(len(player.serverMusicData.queue)/5)
+                await msg.edit(embed=player.get_queue_embed(selected_page))
+            
+            await interaction.respond(type=6)
 
     @commands.command(name="pause")
     async def pause(self, ctx: commands.Context):

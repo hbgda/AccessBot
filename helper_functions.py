@@ -11,7 +11,7 @@ def get_playback_info(url, ytdlOps):
         return e
 
 
-def format_str(string):
-    if len(string) > 34:
-        return string[0:34] + "..."
+def format_str(string, length = 34):
+    if len(string) > length:
+        return string[0:length] + "..."
     return string

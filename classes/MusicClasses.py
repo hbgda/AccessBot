@@ -1,5 +1,6 @@
 import discord
 import asyncio
+import math
 
 from discord.ext import commands
 from discord.voice_client import VoiceClient
@@ -131,6 +132,7 @@ class ServerMusicPlayer():
             await self.play_queue()
         else:
             await self.context.send("Finished!")
+            self.serverMusicData.queue.clear()
             await self.vc.disconnect()
     
     async def play_prev(self):
@@ -146,13 +148,35 @@ class ServerMusicPlayer():
     
     def pause(self):
         self.vc.pause()
-        return
 
     def resume(self):
         self.vc.resume()
-        return
-
+        
     def set_volume(self, vol):
         self.volume = vol
         self.vc.source.volume = vol
-        return
+
+    def get_queue_embed(self, page = 1):
+        embed = discord.Embed(title="Queue")
+        
+        songs = self.serverMusicData.queue
+
+        if page < 1:
+            page = 1
+        elif page > math.ceil(len(songs)/5):
+            page = math.ceil(len(songs)/5)
+
+        start_index = (page - 1) * 5
+        end_index = min(page * 5, len(songs))
+        while start_index < end_index:
+            s = songs[start_index]
+            if self.serverMusicData.get_current_song() == s:
+                embed.add_field(name=str(start_index + 1) + " (Playing)", value="[{0}]({1})".format(format_str(s.title + " - {0}".format(s.uploader), 60), s.url), inline=False)
+            else:
+                embed.add_field(name=start_index + 1, value="[{0}]({1})".format(format_str(s.title + " - {0}".format(s.uploader), 60), s.url), inline=False)
+            start_index += 1
+
+        embed.colour = 0x4a54e7
+        embed.set_footer(text="Page {0}/{1}".format(page, math.ceil(len(songs)/5)))
+
+        return embed
