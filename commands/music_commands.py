@@ -15,7 +15,6 @@ YTDL_OPTIONS = {'format': 'bestaudio'}
 FFMPEG_OPTIONS = {
 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
-servers: dict[str, ServerMusicData] = {}
 players: dict[str, ServerMusicPlayer] = {}
 
 class MusicCommands(commands.Cog):
@@ -26,9 +25,33 @@ class MusicCommands(commands.Cog):
     async def play_song(self, ctx: commands.Context, *, args: str = None):
         print(args)
 
-        servers[ctx.guild.id] = ServerMusicData([])
-        
-        if re.search("^.*(youtu.be\/|list=)([^#\&\?]*).*", args):
+        _addToQueue = False
+
+        try:
+            p = players[ctx.guild.id]
+        except:
+            p = None
+        if p:
+            print("_addToQueue = True")
+            _addToQueue = True
+
+        print(type(p))
+
+        if p == None:
+            try:
+                channel = ctx.author.voice.channel
+                vc = await channel.connect()
+            except:
+                await ctx.send("Join a voice channel!")
+                return
+
+        if p:
+            player = p
+        else:
+            player = players[ctx.guild.id] = ServerMusicPlayer(ctx, vc, ServerMusicData([]), YTDL_OPTIONS)
+
+        # I have no clue how regex works so this could be stupid but it seems to work so whatever
+        if re.match("https://www\.youtube\.com/playlist\?list=([a-zA-Z]+([0-9]+[a-zA-Z]+)+)", args):  # Regex wasn't working properly idk: re.search("^(?!.*\?.*\bv=)https:\/\/www\.youtube\.com\/.*\?.*\blist=.*$", args):
             # Play playlist
             playlist_id = args.split("list=")[1].split("&")[0]
             print(playlist_id)
@@ -38,8 +61,8 @@ class MusicCommands(commands.Cog):
             print(len(playlist_items))
 
             for item in playlist_items:
-                song = Song(item.snippet.title, item.snippet.description, item.snippet.channelTitle, item.snippet.thumbnails.default.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
-                servers[ctx.guild.id].add_song(song)
+                song = Song(item.snippet.title.strip(), item.snippet.description, item.snippet.channelTitle, item.snippet.thumbnails.default.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
+                player.serverMusicData.add_song(song)
 
         elif re.search("^(http(s)?:\/\/)?((w){3}.)?youtu(be|.be)?(\.com)?\/.+", args):
             # Play single
@@ -54,19 +77,18 @@ class MusicCommands(commands.Cog):
             #print(video_info)
         
             song = Song(video_info.snippet.title.strip(), video_info.snippet.description, video_info.snippet.channelTitle, video_info.snippet.thumbnails.default.url, args, (video_info.contentDetails.duration))
-            servers[ctx.guild.id].add_song(song)
+            player.serverMusicData.add_song(song)
 
         else:
             await ctx.send("Invalid URL.")
             return
             # TODO: Implement search
 
-        channel = ctx.author.voice.channel
-        
-        vc = await channel.connect()
-        smp = ServerMusicPlayer(ctx, vc, servers[ctx.guild.id], YTDL_OPTIONS)
-        players[ctx.guild.id] = smp
-        await smp.play_queue()
+        if _addToQueue == True:
+            await ctx.send("Added to queue!\nQueue length: {0}".format(len(player.serverMusicData.queue)))
+            return
+
+        await player.play_queue()
 
     @commands.command(name="pause")
     async def pause(self, ctx: commands.Context):
@@ -116,6 +138,8 @@ class MusicCommands(commands.Cog):
             await ctx.send("Nothing playing!")
         else:
             p.set_volume(vol)
+
+
 
 
 def setup(client):

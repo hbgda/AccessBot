@@ -9,3 +9,9 @@ def get_playback_info(url, ytdlOps):
     except Exception as e:
         print(e)
         return e
+
+
+def format_str(string):
+    if len(string) > 34:
+        return string[0:34] + "..."
+    return string

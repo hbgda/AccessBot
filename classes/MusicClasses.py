@@ -3,7 +3,7 @@ import asyncio
 
 from discord.ext import commands
 from discord.voice_client import VoiceClient
-from helper_functions import get_playback_info
+from helper_functions import format_str, get_playback_info
 
 FFMPEG_OPTIONS = {
 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
@@ -39,7 +39,14 @@ class ServerMusicData():
         self.queue.append(song)
 
     def remove_song(self, song: Song):
-        self.queue.remove(song)
+        try:
+            index = self.queue.index(Song)
+        except:
+            return
+        
+        if index <= self.queueIndex:
+            self.queueIndex -= 1
+            self.queue.remove(song)
 
     def set_queue(self, queue: list[Song]):
         self.queue = queue
@@ -94,14 +101,14 @@ class ServerMusicPlayer():
         playback_duration = info["duration"]
 
         embed = discord.Embed()
-        embed.add_field(name="Now Playing", value="[{0}]({1})".format(current.title, current.url), inline=False)
+        embed.add_field(name="Now Playing", value="[{0}]({1})".format(format_str(current.title), current.url), inline=False)
         embed.add_field(name="Duration", value='%d:%02d' % (playback_duration / 60, playback_duration % 60), inline=False)
         embed.set_thumbnail(url=current.thumbnail)
         embed.colour = 0x4a54e7
 
         _next = self.serverMusicData.get_next_song()
         if _next:
-            embed.add_field(name="Next Up", value="[{0}]({1})".format(_next.title, _next.url), inline=False)
+            embed.add_field(name="Next Up", value="[{0}]({1})".format(format_str(_next.title), _next.url), inline=False)
 
         await self.context.send(embed=embed)
 
