@@ -121,6 +121,7 @@ class ServerMusicPlayer():
         # (could be entirely wrong idk)
         self.is_playing = self.vc.is_playing()
         while self.is_playing == False:
+            print("Not playing yet...")
             self.is_playing = self.vc.is_playing()
 
         while self.vc.is_playing() or self.vc.is_paused():

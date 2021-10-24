@@ -67,7 +67,7 @@ class MusicCommands(commands.Cog):
             print(len(playlist_items))
 
             for item in playlist_items:
-                song = Song(item.snippet.title.strip(), item.snippet.description, item.snippet.videoOwnerChannelTitle.strip(" - Topic"), item.snippet.thumbnails.maxres.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
+                song = Song(item.snippet.title.strip(), item.snippet.description, item.snippet.videoOwnerChannelTitle.strip(" - Topic"), item.snippet.thumbnails.high.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
                 player.serverMusicData.add_song(song)
 
         elif re.search("^(http(s)?:\/\/)?((w){3}.)?youtu(be|.be)?(\.com)?\/.+", args):
@@ -82,7 +82,7 @@ class MusicCommands(commands.Cog):
             video_info: Video = yt_api.get_video_by_id(video_id=video_id).items[0]
             #print(video_info)
         
-            song = Song(video_info.snippet.title.strip(), video_info.snippet.description, video_info.snippet.channelTitle.strip(" - Topic"), video_info.snippet.thumbnails.maxres.url, args, (video_info.contentDetails.duration))
+            song = Song(video_info.snippet.title.strip(), video_info.snippet.description, video_info.snippet.channelTitle.strip(" - Topic"), video_info.snippet.thumbnails.high.url, args, (video_info.contentDetails.duration))
             player.serverMusicData.add_song(song)
 
         else:
