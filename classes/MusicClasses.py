@@ -121,7 +121,7 @@ class ServerMusicPlayer():
         # (could be entirely wrong idk)
         await asyncio.sleep(1)
 
-        while self.vc.is_playing() or self.vc.is_paused():
+        while self.vc.is_playing() or self.vc.is_paused() or self.is_playing == True:
             if self.is_playing == False:
                 return
             await asyncio.sleep(.2)
@@ -144,7 +144,7 @@ class ServerMusicPlayer():
         self.is_playing = False
         await asyncio.sleep(.3)
         if self.serverMusicData.get_prev_song():
-            self.serverMusicData -= 1
+            self.serverMusicData.queueIndex -= 1
             await self.vc.stop()
             await self.play_queue()
         else:
