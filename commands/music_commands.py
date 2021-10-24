@@ -1,7 +1,5 @@
-import asyncio
 import re
 from time import time
-import discord
 import math
 
 from discord.ext import commands
@@ -118,27 +116,30 @@ class MusicCommands(commands.Cog):
             Button(style=ButtonStyle.blue, label=">>", custom_id=time_token + "_3")]
         ])
 
-        _inter: Message = None
         while True:
-            interaction: Interaction = await self.client.wait_for("button_click")
-            if not (time_token in interaction.custom_id):
-                continue
-            if interaction.component.label == "<<":
-                selected_page = 1
-                await msg.edit(embed=player.get_queue_embed())
-            elif interaction.component.label == "<":
-                if selected_page > 1:
-                    selected_page -= 1
-                await msg.edit(embed=player.get_queue_embed(selected_page))
-            elif interaction.component.label == ">":
-                if selected_page < math.ceil(len(player.serverMusicData.queue)/5):
-                    selected_page += 1
-                await msg.edit(embed=player.get_queue_embed(selected_page))
-            elif interaction.component.label == ">>":
-                selected_page = math.ceil(len(player.serverMusicData.queue)/5)
-                await msg.edit(embed=player.get_queue_embed(selected_page))
-            
-            await interaction.respond(type=6)
+            try:
+                interaction: Interaction = await self.client.wait_for("button_click", timeout=60)
+                if not (time_token in interaction.custom_id):
+                    continue
+                if interaction.component.label == "<<":
+                    selected_page = 1
+                    await msg.edit(embed=player.get_queue_embed())
+                elif interaction.component.label == "<":
+                    if selected_page > 1:
+                        selected_page -= 1
+                    await msg.edit(embed=player.get_queue_embed(selected_page))
+                elif interaction.component.label == ">":
+                    if selected_page < math.ceil(len(player.serverMusicData.queue)/5):
+                        selected_page += 1
+                    await msg.edit(embed=player.get_queue_embed(selected_page))
+                elif interaction.component.label == ">>":
+                    selected_page = math.ceil(len(player.serverMusicData.queue)/5)
+                    await msg.edit(embed=player.get_queue_embed(selected_page))
+                
+                await interaction.respond(type=6)
+            except:
+                await msg.delete()
+                return
 
     @commands.command(name="pause")
     async def pause(self, ctx: commands.Context):
@@ -150,7 +151,6 @@ class MusicCommands(commands.Cog):
         else:
             p.pause()
             await ctx.send("Paused")
-
 
     @commands.command(name="resume")
     async def resume(self, ctx: commands.Context):
@@ -188,9 +188,6 @@ class MusicCommands(commands.Cog):
             await ctx.send("Nothing playing!")
         else:
             p.set_volume(vol)
-
-
-
 
 def setup(client):
     client.add_cog(MusicCommands(client))
