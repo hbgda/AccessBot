@@ -88,52 +88,55 @@ class ServerMusicPlayer():
         self.context = ctx
 
     async def play_queue(self):
-        self.is_playing = True
+        try:
+            self.is_playing = True
 
-        current = self.serverMusicData.get_current_song()
-        
-        info = get_playback_info(current.url, self.ytdl_ops)
-        if isinstance(info, Exception):
-            await self.context.send("Error playing:\n`{0}`".format(current.title))
-            self.play_next()
-            return
+            current = self.serverMusicData.get_current_song()
 
-        playback_url = info["url"]
-        playback_duration = info["duration"]
-
-        embed = discord.Embed()
-        embed.add_field(name="Now Playing", value="[{0}]({1})".format(format_str(current.title), current.url), inline=False)
-        embed.add_field(name="Duration", value='%d:%02d' % (playback_duration / 60, playback_duration % 60), inline=False)
-        embed.set_thumbnail(url=current.thumbnail)
-        embed.colour = 0x4a54e7
-
-        _next = self.serverMusicData.get_next_song()
-        if _next:
-            embed.add_field(name="Next Up", value="[{0}]({1})".format(format_str(_next.title), _next.url), inline=False)
-
-        await self.context.send(embed=embed)
-
-        self.vc.play(discord.FFmpegPCMAudio(playback_url, **FFMPEG_OPTIONS))
-        self.vc.source = discord.PCMVolumeTransformer(self.vc.source, self.volume)
-        
-        # Maybe fixes a bug where it'll sometimes rarely skip a song?
-        # (assuming the bug is caused by both vc.is_playing() and vc.is_paused() being false while it is downloading the initial audio data)
-        # (could be entirely wrong idk)
-        self.is_playing = self.vc.is_playing()
-        while self.is_playing == False:
-            print("Not playing yet...")
-            self.is_playing = self.vc.is_playing()
-
-        while self.vc.is_playing() or self.vc.is_paused():
-            if self.is_playing == False:
+            info = get_playback_info(current.url, self.ytdl_ops)
+            if isinstance(info, Exception):
+                await self.context.send("Error playing:\n`{0}`".format(current.title))
+                self.play_next()
                 return
-            await asyncio.sleep(.2)
-        
-        await self.play_next()   
+
+            playback_url = info["url"]
+            playback_duration = info["duration"]
+
+            embed = discord.Embed()
+            embed.add_field(name="Now Playing", value="[{0}]({1})".format(format_str(current.title), current.url), inline=False)
+            embed.add_field(name="Duration", value='%d:%02d' % (playback_duration / 60, playback_duration % 60), inline=False)
+            embed.set_thumbnail(url=current.thumbnail)
+            embed.colour = 0x4a54e7
+
+            _next = self.serverMusicData.get_next_song()
+            if _next:
+                embed.add_field(name="Next Up", value="[{0}]({1})".format(format_str(_next.title), _next.url), inline=False)
+
+            await self.context.send(embed=embed)
+
+            self.vc.play(discord.FFmpegPCMAudio(playback_url, **FFMPEG_OPTIONS))
+            self.vc.source = discord.PCMVolumeTransformer(self.vc.source, self.volume)
+
+            # Maybe fixes a bug where it'll sometimes rarely skip a song?
+            # (assuming the bug is caused by both vc.is_playing() and vc.is_paused() being false while it is downloading the initial audio data)
+            # (could be entirely wrong idk)
+            # THIS SHIT IS DRIVING ME INSANE I HAVE NO FUCKING CLUE WHATS CAUSING IT TO RANDOMLY SKIP A SONG IT DOESNT ERROR WHAT THE FUCK
+
+            while self.vc.is_playing() == False:
+                await asyncio.sleep(.4)
+
+            while self.vc.is_playing() or self.vc.is_paused():
+                if self.is_playing == False:
+                    return
+                await asyncio.sleep(.1)
+
+            await self.play_next()
+        except Exception as e:
+            print(e)   
 
     async def play_next(self):
         self.is_playing = False
-        await asyncio.sleep(.3)
+        await asyncio.sleep(.5)
         if self.serverMusicData.get_next_song():
             self.serverMusicData.queueIndex += 1
             self.vc.stop()
@@ -141,6 +144,7 @@ class ServerMusicPlayer():
         else:
             await self.context.send("Finished!")
             self.serverMusicData.queue.clear()
+            self.serverMusicData.queueIndex = 0
             await self.vc.disconnect()
     
     async def play_prev(self):
@@ -148,7 +152,7 @@ class ServerMusicPlayer():
         await asyncio.sleep(.3)
         if self.serverMusicData.get_prev_song():
             self.serverMusicData.queueIndex -= 1
-            await self.vc.stop()
+            self.vc.stop()
             await self.play_queue()
         else:
             await self.context.send("No previous songs.")

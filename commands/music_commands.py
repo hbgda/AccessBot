@@ -37,16 +37,18 @@ class MusicCommands(commands.Cog):
             p = players[ctx.guild.id]
         except:
             p = None
-        if p:
+        if p and p.serverMusicData.queue != []:
             print("_addToQueue = True")
             _addToQueue = True
 
         print(type(p))
 
-        if p == None:
+        if p == None or p.vc.is_connected() == False:
             try:
                 channel = ctx.author.voice.channel
                 vc = await channel.connect()
+                if p:
+                    p.vc = vc
             except:
                 await ctx.send("Join a voice channel!")
                 return
