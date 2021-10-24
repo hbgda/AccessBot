@@ -115,6 +115,11 @@ class ServerMusicPlayer():
 
         self.vc.play(discord.FFmpegPCMAudio(playback_url, **FFMPEG_OPTIONS))
         self.vc.source = discord.PCMVolumeTransformer(self.vc.source, self.volume)
+        
+        # Maybe fixes a bug where it'll sometimes rarely skip a song?
+        # (assuming the bug is caused by both vc.is_playing() and vc.is_paused() being false while it is downloading the initial audio data)
+        # (could be entirely wrong idk)
+        await asyncio.sleep(1)
 
         while self.vc.is_playing() or self.vc.is_paused():
             if self.is_playing == False:
@@ -156,18 +161,18 @@ class ServerMusicPlayer():
         self.volume = vol
         self.vc.source.volume = vol
 
-    def get_queue_embed(self, page = 1):
+    def get_queue_embed(self, page = 1, amount = 5):
         embed = discord.Embed(title="Queue")
         
         songs = self.serverMusicData.queue
 
         if page < 1:
             page = 1
-        elif page > math.ceil(len(songs)/5):
-            page = math.ceil(len(songs)/5)
+        elif page > math.ceil(len(songs)/amount):
+            page = math.ceil(len(songs)/amount)
 
-        start_index = (page - 1) * 5
-        end_index = min(page * 5, len(songs))
+        start_index = (page - 1) * amount
+        end_index = min(page * amount, len(songs))
         while start_index < end_index:
             s = songs[start_index]
             if self.serverMusicData.get_current_song() == s:
@@ -177,6 +182,6 @@ class ServerMusicPlayer():
             start_index += 1
 
         embed.colour = 0x4a54e7
-        embed.set_footer(text="Page {0}/{1}".format(page, math.ceil(len(songs)/5)))
+        embed.set_footer(text="Page {0}/{1}".format(page, math.ceil(len(songs)/amount)))
 
         return embed

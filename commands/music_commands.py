@@ -1,4 +1,6 @@
+import asyncio
 import re
+from time import time
 import discord
 import math
 
@@ -99,6 +101,7 @@ class MusicCommands(commands.Cog):
     @commands.command(name="queue")
     async def queue(self, ctx: commands.Context, page = 1):
         selected_page = page
+
         try:
             player = players[ctx.guild.id]
         except:
@@ -107,16 +110,19 @@ class MusicCommands(commands.Cog):
 
         embed = player.get_queue_embed(page)
 
+        time_token = str(time())
         msg: Message = await ctx.send(embed=embed, components=[
-            [Button(style=ButtonStyle.blue, label="<<"),
-            Button(style=ButtonStyle.blue, label="<"),
-            Button(style=ButtonStyle.blue, label=">"),
-            Button(style=ButtonStyle.blue, label=">>")]
+            [Button(style=ButtonStyle.blue, label="<<", custom_id=time_token),
+            Button(style=ButtonStyle.blue, label="<", custom_id=time_token + "_1"),
+            Button(style=ButtonStyle.blue, label=">", custom_id=time_token + "_2"),
+            Button(style=ButtonStyle.blue, label=">>", custom_id=time_token + "_3")]
         ])
 
         _inter: Message = None
         while True:
             interaction: Interaction = await self.client.wait_for("button_click")
+            if not (time_token in interaction.custom_id):
+                continue
             if interaction.component.label == "<<":
                 selected_page = 1
                 await msg.edit(embed=player.get_queue_embed())
