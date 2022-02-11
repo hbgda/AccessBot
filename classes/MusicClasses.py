@@ -41,13 +41,14 @@ class ServerMusicData():
 
     def remove_song(self, song: Song):
         try:
-            index = self.queue.index(Song)
+            index = self.queue.index(song)
         except:
             return
         
         if index <= self.queueIndex:
             self.queueIndex -= 1
-            self.queue.remove(song)
+        
+        self.queue.remove(song)
 
     def set_queue(self, queue: list[Song]):
         self.queue = queue

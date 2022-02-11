@@ -69,8 +69,12 @@ class MusicCommands(commands.Cog):
             print(len(playlist_items))
 
             for item in playlist_items:
-                song = Song(item.snippet.title.strip(), item.snippet.description, item.snippet.videoOwnerChannelTitle.strip(" - Topic"), item.snippet.thumbnails.high.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
-                player.serverMusicData.add_song(song)
+                try:
+                    song = Song(item.snippet.title.strip(), item.snippet.description, item.snippet.videoOwnerChannelTitle.strip(" - Topic"), item.snippet.thumbnails.high.url, "https://youtu.be/{0}".format(item.contentDetails.videoId), 0)
+                    player.serverMusicData.add_song(song)
+                except:
+                    continue
+                    
 
         elif re.search("^(http(s)?:\/\/)?((w){3}.)?youtu(be|.be)?(\.com)?\/.+", args):
             # Play single
