@@ -121,8 +121,7 @@ class ServerMusicPlayer():
             # Maybe fixes a bug where it'll sometimes rarely skip a song?
             # (assuming the bug is caused by both vc.is_playing() and vc.is_paused() being false while it is downloading the initial audio data)
             # (could be entirely wrong idk)
-            # THIS SHIT IS DRIVING ME INSANE I HAVE NO FUCKING CLUE WHATS CAUSING IT TO RANDOMLY SKIP A SONG IT DOESNT ERROR WHAT THE FUCK
-
+          
             while self.vc.is_playing() == False:
                 await asyncio.sleep(.4)
 
